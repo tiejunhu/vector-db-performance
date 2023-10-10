@@ -35,16 +35,32 @@ def time_of_next_month(year, month):
 
 
 async def run_query(count, batch, query_func):
+    async def timed_query(vector):
+        start_time = time.perf_counter()
+        await query_func(vector)
+        return time.perf_counter() - start_time
+
     start_time = time.perf_counter()
+    all_seconds = []
     for i in trange(0, count, batch):
         crs = []
         for j in range(batch):
             vector = make_normalized_random_vector(1536)
-            crs.append(query_func(vector))
-        await asyncio.wait_for(asyncio.gather(*crs), timeout=1000)
+            crs.append(timed_query(vector))
+        seconds = await asyncio.wait_for(asyncio.gather(*crs), timeout=1000)
+        all_seconds.extend(seconds)
     time_cost = time.perf_counter() - start_time
     print(
-        f"query {count} times, cost {time_cost:.3f} seconds, average {(time_cost / count):.3f} seconds"
+        f"query {count} times, totally cost {time_cost:.3f} seconds, qps {count / time_cost:.3f}"
+    )
+    mean = np.mean(all_seconds)
+    std = np.std(all_seconds)
+    p99 = np.percentile(all_seconds, 99)
+    p90 = np.percentile(all_seconds, 90)
+    max = np.max(all_seconds)
+    min = np.min(all_seconds)
+    print(
+        f"min: {min:.3f}s, max: {max:.3f}s, mean: {mean:.3f}s, std: {std:.3f}s, p99: {p99:.3f}s, p90: {p90:.3f}s"
     )
 
 
