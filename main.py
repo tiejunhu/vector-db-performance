@@ -66,4 +66,11 @@ def query(ctx, count, batch):
     asyncio.run(impl.query(count, batch))
 
 
+@cli.command("index")
+@click.pass_context
+def query(ctx):
+    impl = get_impl(ctx)
+    asyncio.run(impl.insert_and_query())
+
+
 cli()

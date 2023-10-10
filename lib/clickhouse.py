@@ -31,6 +31,22 @@ CREATE TABLE IF NOT EXISTS tbl
 """
 
 
+async def _query(self, query_vector):
+    sql = (
+        f"SELECT uuid, L2Distance(text_vector, {query_vector}) AS score "
+        "FROM tbl WHERE is_deleted=0 "
+        "ORDER BY score ASC LIMIT 5"
+    )
+    return await self._fetch(sql)
+
+
+async def _insert(self, values):
+    await self._exec(
+        "INSERT INTO tbl (uuid, text_vector, create_time, update_time, is_deleted) VALUES",
+        *values,
+    )
+
+
 class ClickHouse:
     def _set_database(self, db):
         self.client.params["database"] = db
@@ -65,20 +81,25 @@ class ClickHouse:
 
     async def query(self, count, batch):
         async def query(query_vector):
-            sql = (
-                f"SELECT uuid, L2Distance(text_vector, {query_vector}) AS score "
-                "FROM tbl WHERE is_deleted=0 "
-                "ORDER BY score ASC LIMIT 5"
-            )
-            await self._fetch(sql)
+            return await _query(self, query_vector)
 
         await utils.run_query(count, batch, query)
 
     async def load(self, total, batch_size, partition_size):
         async def insert(values):
-            await self._exec(
-                "INSERT INTO tbl (uuid, text_vector, create_time, update_time, is_deleted) VALUES",
-                *values,
-            )
+            await _insert(self, values)
 
         await utils.run_insert(total, batch_size, partition_size, insert)
+
+    async def insert_and_query(self):
+        async def query(query_vector):
+            return await _query(self, query_vector)
+
+        async def insert(values):
+            await _insert(self, values)
+
+        def result_func(result):
+            for row in result:
+                yield row[0]
+
+        await utils.run_insert_query(insert, query, result_func)

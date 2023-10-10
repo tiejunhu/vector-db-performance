@@ -71,6 +71,22 @@ async def _batch_insert(async_client, collection, points):
     )
 
 
+async def _insert_values(async_client, collection, values):
+    points = [
+        m.PointStruct(
+            id=v[0],
+            vector=v[1],
+            payload={
+                "create_time": v[2],
+                "update_time": v[3],
+                "is_deleted": v[4],
+            },
+        )
+        for v in values
+    ]
+    await _batch_insert(async_client, collection, points)
+
+
 async def _search(async_client, collection, vector):
     search_params = m.SearchParams(
         hnsw_ef=256,
@@ -87,7 +103,7 @@ async def _search(async_client, collection, vector):
         with_payload=True,
         params=search_params,
     )
-    await async_client.points_api.search_points(
+    return await async_client.points_api.search_points(
         collection_name=collection,
         search_request=search_request,
     )
@@ -119,18 +135,19 @@ class Qdrant:
 
     async def load(self, total, batch_size, partition_size):
         async def insert(values):
-            points = [
-                m.PointStruct(
-                    id=v[0],
-                    vector=v[1],
-                    payload={
-                        "create_time": v[2],
-                        "update_time": v[3],
-                        "is_deleted": v[4],
-                    },
-                )
-                for v in values
-            ]
-            await _batch_insert(self.async_client, self.collection, points)
+            await _insert_values(self.async_client, self.collection, values)
 
         await utils.run_insert(total, batch_size, partition_size, insert)
+
+    async def insert_and_query(self):
+        async def insert(values):
+            await _insert_values(self.async_client, self.collection, values)
+
+        async def search(vector):
+            return await _search(self.async_client, self.collection, vector)
+
+        def result_func(result):
+            for point in result.result:
+                yield point.id
+
+        await utils.run_insert_query(insert, search, result_func)

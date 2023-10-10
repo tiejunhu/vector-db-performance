@@ -59,3 +59,18 @@ async def run_insert(total, batch_size, partition_size, insert_func):
         values = generate_values(batch_size, create_time)
         print("    insert record from %d to %d" % (i, i + batch_size))
         await insert_func(values)
+
+
+async def run_insert_query(insert_func, query_func, result_func):
+    values = generate_values(1, time.time())
+    await insert_func(values)
+    uuid, vector = values[0][0], values[0][1]
+    result = await query_func(vector)
+    found = False
+    for point_id in result_func(result):
+        if point_id == uuid:
+            print("found just inserted uuid in search")
+            found = True
+            break
+    if not found:
+        print("can not found just inserted uuid in search")
