@@ -62,17 +62,13 @@ class ClickHouse:
         self.database = database
         self._client = None
 
-    def __del__(self):
-        if self._client is not None:
-            asyncio.run(self._client.close())
-
     @property
     def client(self):
         if self._client is None:
             self._client = create_client(self.url, self.database)
         return self._client
 
-    async def init(self):
+    async def init(self, drop):
         self._set_database("default")
         await self._exec("CREATE DATABASE IF NOT EXISTS " + self.database)
         self._set_database(self.database)
@@ -103,3 +99,7 @@ class ClickHouse:
                 yield row[0]
 
         await utils.run_insert_query(insert, query, result_func)
+
+    async def close(self):
+        if self._client is not None:
+            await self._client.close()

@@ -66,14 +66,15 @@ async def run_query(count, batch, query_func):
 
 async def run_insert(total, batch_size, partition_size, insert_func):
     year, month, create_time = time_of_next_month(2000, 0)
-    print("start with partition %d%02d" % (year, month))
-    for i in range(0, total, batch_size):
+    pbar = trange(0, total, batch_size)
+    for i in pbar:
         if i > 0 and i % partition_size == 0:
             year, month, create_time = time_of_next_month(year, month)
-            print("new partition %d%02d" % (year, month))
 
         values = generate_values(batch_size, create_time)
-        print("    insert record from %d to %d" % (i, i + batch_size))
+        pbar.set_description(
+            "%d to %d on partition %d-%02d" % (i, i + batch_size, year, month)
+        )
         await insert_func(values)
 
 

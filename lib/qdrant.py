@@ -1,5 +1,4 @@
 import asyncio
-import time
 from typing import Optional
 
 import qdrant_client.http.models as m
@@ -25,14 +24,15 @@ def _create_collection_params(vector_dim: int):
         ),
         optimizers_config=m.OptimizersConfigDiff(
             memmap_threshold=100000,
+            max_segment_size=600000,
         ),
-        quantization_config=m.ScalarQuantization(
-            scalar=m.ScalarQuantizationConfig(
-                type=m.ScalarType.INT8,
+        quantization_config=m.BinaryQuantization(
+            binary=m.BinaryQuantizationConfig(
                 always_ram=True,
             )
         ),
         on_disk_payload=True,
+        shard_number=4,
     )
 
 
@@ -91,7 +91,7 @@ async def _search(async_client, collection, vector):
     search_params = m.SearchParams(
         hnsw_ef=256,
         quantization=m.QuantizationSearchParams(
-            oversampling=2,
+            oversampling=4,
             rescore=True,
             ignore=False,
         ),
@@ -122,9 +122,9 @@ class Qdrant:
     def __init__(self, url, collection):
         self.url = url
         self.collection = collection
-        self.async_client = AsyncApis(self.url)
+        self.async_client = AsyncApis(self.url, timeout=100)
 
-    async def init(self):
+    async def init(self, drop):
         self._prepare_for_create()
 
     async def query(self, count, batch):
@@ -151,3 +151,6 @@ class Qdrant:
                 yield point.id
 
         await utils.run_insert_query(insert, search, result_func)
+
+    async def close(self):
+        await self.async_client.aclose()
