@@ -99,3 +99,6 @@ class Weaviate:
                 yield point["_additional"]["id"]
 
         await utils.run_insert_query(insert, search, result_func)
+
+    async def close(self):
+        ...
