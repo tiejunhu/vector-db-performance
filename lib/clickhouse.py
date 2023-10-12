@@ -1,6 +1,3 @@
-import asyncio
-import time
-
 from aiochclient import ChClient
 from aiohttp import ClientSession, ClientTimeout
 from tqdm import trange
@@ -72,6 +69,8 @@ class ClickHouse:
         self._set_database("default")
         await self._exec("CREATE DATABASE IF NOT EXISTS " + self.database)
         self._set_database(self.database)
+        if drop:
+            await self._exec("DROP TABLE tbl")
         await self._exec(TABLE_SQL)
         print("database and table created")
 
